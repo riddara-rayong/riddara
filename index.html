@@ -78,6 +78,11 @@ td.dc{background:var(--duty-bg)!important} td.num,th.num{text-align:right;font-f
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:12px 16px;border-radius:12px;font-weight:600;z-index:20;max-width:92vw;text-align:center}
 #msg{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-weight:600}
 #msg.err{background:var(--bad-bg);color:var(--bad)}#msg.ok{background:var(--norm-bg);color:var(--norm)}
+.h3{font-size:16px;margin:0 0 4px}
+.lbl2{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}
+select.full{width:100%}
+.cover{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.cover-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -116,7 +121,7 @@ const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:
 function el(t,a={},...k){const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="class")e.className=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(x==="value"||x==="checked")e[x]=v;else if(v!==false&&v!=null)e.setAttribute(x,v===true?"":v)}for(const c of k.flat(Infinity)){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(String(c)))}return e}
 const API="https://script.google.com/macros/s/AKfycbxwmAShTNwSR1c3eweVz-QCGNQ7vhB5cWdA3rAiR9YA6bVofZFYupX_9S4HK6PhwT8/exec";
 async function run(fn,...a){
-  const body=fn==="getState"?{action:fn,period:a[0]}:fn==="punch"?{action:fn,data:a[0]}:fn==="adminSetLocation"?{action:fn,pin:a[0],lat:a[1],lng:a[2]}:{action:fn,pin:a[0],period:a[1],first:a[2]};
+  const body=fn==="getState"?{action:fn,period:a[0]}:fn==="punch"||fn==="swapDuty"?{action:fn,data:a[0]}:fn==="adminSetLocation"?{action:fn,pin:a[0],lat:a[1],lng:a[2]}:{action:fn,pin:a[0],period:a[1],first:a[2]};
   let r;try{r=await fetch(API,{method:"POST",body:JSON.stringify(body),credentials:"omit",redirect:"follow"})}catch(e){throw new Error("เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่")}
   let j;try{j=await r.json()}catch(e){throw new Error("ระบบตอบกลับผิดปกติ ลองใหม่อีกครั้ง")}
   if(!j.ok)throw new Error(j.error||"เกิดข้อผิดพลาด");return j.data}
@@ -149,7 +154,7 @@ function render(){if(!S)return;$("#brand").textContent=S.settings.name||"ฝ่�
 
 /* ---------- my clock-in ---------- */
 function renderMe(){
-  const box=$("#v-me");const keep={};box.querySelectorAll("input[id]").forEach(i=>keep[i.id]=i.value);box.replaceChildren();
+  const box=$("#v-me");const keep={};box.querySelectorAll("input[id],select[id^=sw]").forEach(i=>keep[i.id]=i.value);box.replaceChildren();
   const name=me();const names=S.staff.map(s=>s.name);
   const sel=el("select",{id:"who","aria-label":"เลือกชื่อ",onchange:e=>{LS.set("rd-me",e.target.value);renderMe()}},el("option",{value:""},"— เลือกชื่อของคุณ —"),names.map(n=>el("option",{value:n,selected:n===name},n)));
   box.append(el("div",{class:"me-head",style:"margin-bottom:12px"},el("h2",{style:"margin:0"},"ลงเวลา"),sel));
@@ -180,7 +185,8 @@ function renderMe(){
         el("button",{class:"btn",disabled:busy,onclick:()=>send("leave")},"ลา")),
       el("div",{class:"row",id:"boothRow",hidden:true,style:"margin-top:10px"},el("input",{id:"booth",placeholder:"บูธที่ไหน เช่น เซ็นทรัลระยอง"}),el("button",{class:"btn primary",onclick:()=>send("booth")},"บันทึกบูธ"))],
     el("p",{class:"note",style:"margin:10px 0 0"},`เข้างานและออกงานต้องอยู่ที่ทำงานในระยะ ${S.settings.radius} เมตร มือถือจะขอใช้ตำแหน่ง ให้กดอนุญาต ออกบูธ หยุด ลา กดจากที่ไหนก็ได้`)));
-  for(const[k,v]of Object.entries(keep)){const i=document.getElementById(k);if(i&&!i.value)i.value=v}
+  renderSwap(box,name);
+  for(const[k,v]of Object.entries(keep)){const i=document.getElementById(k);if(i&&(i.tagName==="SELECT"?[...i.options].some(o=>o.value===v):!i.value))i.value=v}
 }
 function periodOfToday(){const d=dt(S.today);if(d.getDate()>=26)d.setMonth(d.getMonth()+1,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`}
 function getPos(){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej(new Error("มือถือนี้ไม่รองรับ GPS"));
@@ -193,6 +199,37 @@ async function send(kind){
     const r=await run("punch",{name,pin,kind,note,lat:c.latitude,lng:c.longitude,acc:c.accuracy});
     LS.set("rd-pin-"+name,$("#rem")&&$("#rem").checked?pin:null);
     S=r.state;drift=S.serverNow-Date.now();msg(r.message+" เรียบร้อย",true);
+  }catch(e){msg(e.message)}finally{busy=false;render()}
+}
+
+/* ---------- swap duty (self-service) ---------- */
+const fmtD=d=>`${d===S.today?"วันนี้ ":""}${dayName(d)} ${dt(d).getDate()} ${TH_M[dt(d).getMonth()]}`;
+function renderSwap(box,name){
+  const days=Object.keys(S.roster).sort().filter(d=>d>=S.today);
+  const others=days.filter(d=>{const r=S.roster[d];return r.sched&&r.sched!==name&&!r.actual}).slice(0,21);
+  const mine=days.filter(d=>{const r=S.roster[d];return r.sched===name&&!r.actual});
+  const covering=days.filter(d=>S.roster[d].actual===name);
+  const p=el("div",{class:"panel"},el("h3",{class:"h3"},"ทำแทนเวร"),
+    el("p",{class:"note",style:"margin:0 0 10px"},"เข้าเวรแทนคนอื่น ใช้ PIN ช่องด้านบน ถ้ามีวันสลับคืน ให้เลือกวันเวรของคุณที่คนเดิมจะมาเข้าแทน"));
+  if(others.length){
+    p.append(el("label",{class:"lbl2",for:"swDate"},"วันที่จะทำแทน"),
+      el("select",{id:"swDate",class:"full"},others.map(d=>el("option",{value:d},`${fmtD(d)} · เวรของ${S.roster[d].sched}`))),
+      el("label",{class:"lbl2",for:"swRet"},"วันสลับคืน (ไม่บังคับ)"),
+      el("select",{id:"swRet",class:"full"},el("option",{value:""},"— ไม่มีวันสลับคืน —"),mine.map(d=>el("option",{value:d},`${fmtD(d)} · เวรของคุณ`))),
+      el("button",{class:"btn primary",style:"width:100%;margin-top:10px",disabled:busy,onclick:()=>sendSwap($("#swDate").value,$("#swRet").value,false)},"ยืนยันทำแทนเวร"));
+  }else p.append(el("p",{class:"note"},"ยังไม่มีวันเวรของคนอื่นให้ทำแทนในตาราง"));
+  if(covering.length)p.append(el("div",{class:"cover"},el("b",{},"เวรที่คุณทำแทนอยู่"),
+    covering.map(d=>{const r=S.roster[d];return el("div",{class:"cover-row"},el("span",{},`${fmtD(d)} · แทน${r.sched}${r.ret?` · สลับคืน ${thShort(r.ret)}`:""}`),
+      el("button",{class:"btn",disabled:busy,onclick:()=>sendSwap(d,"",true)},"ยกเลิก"))})));
+  box.append(p);
+}
+async function sendSwap(date,ret,cancel){
+  const name=me();const pin=$("#pin").value.trim();if(!/^\d{4}$/.test(pin)){msg("ใส่ PIN ตัวเลข 4 หลักในช่องด้านบนก่อน");return}
+  if(!date){msg("เลือกวันที่จะทำแทน");return}
+  busy=true;msg("");renderMe();
+  try{const r=await run("swapDuty",{name,pin,date,returnDate:ret,cancel});
+    LS.set("rd-pin-"+name,$("#rem")&&$("#rem").checked?pin:null);
+    S=r.state;drift=S.serverNow-Date.now();msg(r.message,true);
   }catch(e){msg(e.message)}finally{busy=false;render()}
 }
 
