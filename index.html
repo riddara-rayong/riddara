@@ -94,7 +94,7 @@ select.full{width:100%}
 <body>
 <header><div class="wrap">
   <div class="top">
-    <div class="brand"><b id="brand">ฝ่ายขาย โชว์รูมริดดารา</b><span id="rule">เข้าเวรไม่เกิน 08:10 น. เกินหักครึ่งวัน</span></div>
+    <div class="brand"><b id="brand">ฝ่ายขาย โชว์รูมริดดารา</b><span id="rule">เวรเข้าไม่เกิน 08:10 น.</span></div>
     <div class="clock"><small>เวลาเข้างาน (ตามเครื่องสแกน)</small><span id="clk">--:--</span><small id="clk2"></small></div>
   </div>
   <nav>
@@ -181,7 +181,7 @@ function go(v){view=v;document.querySelectorAll("nav button").forEach(b=>b.toggl
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
-  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"} · ไม่เวรเข้าหลัง ${S.settings.normDeadline||"08:30"} นับสาย (ไม่หัก)`;
+  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} น.`;
   ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]();if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY)$("#rule").textContent="ดูอย่างเดียว · "+$("#rule").textContent.replace(/^ดูอย่างเดียว · /,"")}
 
 /* ---------- my clock-in ---------- */
