@@ -284,16 +284,17 @@ function renderSheet(){$("#pLbl").textContent=pLabel(S.period);const t=$("#sheet
 $("#pPrev").onclick=()=>load(shiftP(S.period,-1));$("#pNext").onclick=()=>load(shiftP(S.period,1));
 
 /* ---------- cycle summary ---------- */
+const fmtHM=m=>!m?"–":m>=60?`${Math.floor(m/60)} ชม. ${m%60} นาที`:`${m} นาที`;
 function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+" · นับถึงวันนี้ · สายวันเวร 1 ครั้ง หัก "+S.settings.deduct+" วัน";const t=$("#sumTbl");t.replaceChildren();
-  t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สายวันเวร (ครั้ง)","หัก (วัน)","หยุด (วัน)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
+  t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (วัน)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
   const tb=el("tbody");
   for(const shop of SHOPS){const L=staffOf(shop);if(!L.length)continue;
-   tb.append(el("tr",{class:"grp"},el("td",{colspan:9},"โชว์รูม"+shop)));
-   for(const s of L){let sched=0,act=0,late=0,off=0,lv=0,bo=0,miss=0;
+   tb.append(el("tr",{class:"grp"},el("td",{colspan:10},"โชว์รูม"+shop)));
+   for(const s of L){let sched=0,act=0,late=0,lateM=0,off=0,lv=0,bo=0,miss=0;
     for(const d of S.days){const r=RS(shop)[d]||{};if(r.sched===s.name)sched++;const x=day(s.name,d);if(x.status==="หยุด")off++;if(x.status==="ลา")lv++;if(x.status==="ออกบูธ")bo++;
-      if(isMgr(s)&&d<=S.today&&lateMin(s.name,d))late++;
-      if(dutyOn(d,shop)===s.name){act++;if(d<=S.today&&lateMin(s.name,d))late++;if(d<S.today&&!x.in&&!x.status)miss++}}
-    tb.append(el("tr",{},el("td",{},el("b",{},s.name),isMgr(s)?el("div",{class:"note"},"ผู้จัดการ"):null),[sched,act].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(late?" late":"")},late),el("td",{class:"num"+(late&&!isMgr(s)?" late":"")},isMgr(s)?"–":late*S.settings.deduct),
+      const lmn=d<=S.today?lateMin(s.name,d):0;if(lmn&&(isMgr(s)||dutyOn(d,shop)===s.name)){late++;lateM+=lmn}
+      if(dutyOn(d,shop)===s.name){act++;if(d<S.today&&!x.in&&!x.status)miss++}}
+    tb.append(el("tr",{},el("td",{},el("b",{},s.name),isMgr(s)?el("div",{class:"note"},"ผู้จัดการ"):null),[sched,act].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(late?" late":"")},late),el("td",{class:"num"+(lateM?" late":"")},fmtHM(lateM)),el("td",{class:"num"+(late&&!isMgr(s)?" late":"")},isMgr(s)?"–":late*S.settings.deduct),
       [off,lv,bo].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(miss?" late":"")},miss)))}}
   t.append(tb);
 }
