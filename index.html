@@ -164,12 +164,12 @@ function rel(d){const n=Math.round((dt(d)-dt(S.today))/864e5);const w=`${dayName
 
 async function load(p){try{S=await run("getState",p||null);drift=S.serverNow-Date.now();render()}catch(e){msg("โหลดข้อมูลไม่ได้: "+e.message)}}
 function go(v){view=v;document.querySelectorAll("nav button").forEach(b=>b.toggleAttribute("aria-current",b.dataset.v===v));document.querySelectorAll("nav button[aria-current]").forEach(b=>b.setAttribute("aria-current","page"));
-  ["me","team","sheet","sum","admin"].forEach(x=>$("#v-"+x).hidden=x!==v);render()}
+  ["me","team","sheet","sum","admin"].forEach(x=>{const e=$("#v-"+x);if(e)e.hidden=x!==v});render()}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
-function render(){if(!S)return;$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
+function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
   $("#rule").textContent=`เข้าเวรไม่เกิน ${S.settings.deadline} น. เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"}`;
-  ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]()}
+  ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]();if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY)$("#rule").textContent="ดูอย่างเดียว · "+$("#rule").textContent.replace(/^ดูอย่างเดียว · /,"")}
 
 /* ---------- my clock-in ---------- */
 function renderMe(){
@@ -315,7 +315,9 @@ function renderAdmin(){const box=$("#v-admin");if(box.childElementCount)return;
 function tick(){const now=new Date(Date.now()+drift);const off=S?S.settings.offset:0;const sc=new Date(now.getTime()+off*60000);
   $("#clk").textContent=`${pad(sc.getHours())}:${pad(sc.getMinutes())}:${pad(sc.getSeconds())}`;$("#clk2").textContent=`ออกงานใช้เวลาจริง ${pad(now.getHours())}:${pad(now.getMinutes())}`}
 setInterval(tick,1000);tick();
-go("me");load();
+/* ?view = read-only link: only team / sheet / summary, no clock-in or manager tools */
+const VIEW_ONLY=new URLSearchParams(location.search).has("view");
+if(VIEW_ONLY){document.querySelectorAll('nav button[data-v="me"],nav button[data-v="admin"]').forEach(b=>b.remove());$("#v-me").remove();$("#v-admin").remove();$("#rule").textContent="ดูอย่างเดียว";go("team")}else go("me");load();
 setInterval(()=>{if(!busy&&!document.hidden)load(S&&S.period)},60000);
 </script>
 </body>
