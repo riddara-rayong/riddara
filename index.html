@@ -138,7 +138,11 @@ const dayName=s=>TH_DF[dt(s).getDay()];
 const shiftP=(p,k)=>{const[y,m]=p.split("-").map(Number);const d=new Date(y,m-1+k,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`};
 const pLabel=p=>{const[y,m]=p.split("-").map(Number);const s=new Date(y,m-2,26);return `รอบ 26 ${TH_M[s.getMonth()]} – 25 ${TH_M[m-1]} ${y+543}`};
 
-let S=null,view="me",drift=0,busy=false;
+let S=null,view="me",drift=0,busy=false,pendKind=null;
+const KLABEL={booth:"ออกบูธ",off:"หยุด",leave:"ลา"};
+const PH={booth:"บูธที่ไหน เช่น เซ็นทรัลระยอง",off:"เหตุผลที่หยุด เช่น ธุระส่วนตัว",leave:"เหตุผลที่ลา เช่น ลาป่วย"};
+/* day-off quota per pay cycle (column F in the staff sheet); manager weekend auto-off doesn't count */
+const offUsed=name=>S.days.filter(d=>{const x=day(name,d);return x.status==="หยุด"&&!x.auto}).length;
 const me=()=>LS.get("rd-me")||"";
 /* two showrooms, each with its own duty roster */
 const SHOPS=["ริดดารา","ฮุนได"];
@@ -191,20 +195,22 @@ function renderMe(){
     el("div",{},el("span",{},"เข้างาน"),el("output",{},x.in||"--:--"),el("div",{class:lm?"late":x.in&&(isDuty||mgr||wk)?"good":"note"},lm?(isDuty?`สายเวร ${lm} นาที · หัก ${S.settings.deduct} วัน`:mgr?`สาย ${lm} นาที`:`สาย ${lm} นาที · หัก ${S.settings.deduct} วัน`):x.in&&(isDuty||mgr||wk)?"ทันเวลา":"")),
     el("div",{},el("span",{},"ออกงาน"),el("output",{},x.out||"--:--"))));
   const staff=S.staff.find(s=>s.name===name);
+  const q=staff.quota,used=q!=null?offUsed(name):0,quotaOver=q!=null&&used>=q;
   const pin=el("input",{id:"pin",type:"password",inputmode:"numeric",maxlength:"4",autocomplete:"off",placeholder:staff.hasPin?"PIN 4 หลัก":"ตั้ง PIN 4 หลักของคุณ (ครั้งแรก)",value:LS.get("rd-pin-"+name)||"","aria-label":"PIN"});
   const remember=el("input",{type:"checkbox",id:"rem",checked:LS.get("rd-pin-"+name)!=null});
   box.append(el("div",{class:"panel"},
     el("div",{class:"row",style:"margin-bottom:6px"},pin),
     el("label",{class:"note row",style:"gap:6px;margin-bottom:12px"},remember,"จำ PIN ในมือถือเครื่องนี้"),
+    q!=null?el("p",{class:used>q?"late":"note",style:"margin:0 0 10px"},`สิทธิ์หยุดรอบนี้: ใช้ไป ${used} จาก ${q} วัน`+(used>q?` · เกินสิทธิ์ ${used-q} วัน`:` · เหลือ ${q-used} วัน`)):null,
     x.status&&!x.auto?el("button",{class:"btn",style:"width:100%",disabled:busy,onclick:()=>send("cancel")},`ยกเลิก${x.status}`):[
       el("div",{class:"acts"},
         el("button",{class:"btn primary",disabled:busy||!!x.in,onclick:()=>send("in")},"เข้างาน"),
         el("button",{class:"btn",disabled:busy||!x.in||!!x.out,onclick:()=>send("out")},"ออกงาน")),
       x.in?null:el("div",{class:"acts2"},
-        el("button",{class:"btn",disabled:busy,onclick:()=>{$("#boothRow").hidden=false;$("#booth").focus()}},"ออกบูธ"),
-        el("button",{class:"btn",disabled:busy,onclick:()=>send("off")},"หยุด"),
-        el("button",{class:"btn",disabled:busy,onclick:()=>send("leave")},"ลา")),
-      el("div",{class:"row",id:"boothRow",hidden:true,style:"margin-top:10px"},el("input",{id:"booth",placeholder:"บูธที่ไหน เช่น เซ็นทรัลระยอง"}),el("button",{class:"btn primary",onclick:()=>send("booth")},"บันทึกบูธ"))],
+        ["booth","off","leave"].map(k=>el("button",{class:"btn"+(pendKind===k?" on":""),disabled:busy,onclick:()=>{pendKind=pendKind===k?null:k;renderMe();setTimeout(()=>{const i=$("#reason");if(i)i.focus()},0)}},KLABEL[k]))),
+      pendKind&&!x.in?el("div",{style:"margin-top:10px"},
+        pendKind==="off"&&quotaOver?el("p",{class:"late",style:"margin:0 0 6px"},`ใช้สิทธิ์หยุดรอบนี้ครบ ${q} วันแล้ว ถ้าหยุดอีกจะนับเป็นเกินสิทธิ์`):null,
+        el("div",{class:"row"},el("input",{id:"reason",placeholder:PH[pendKind],"aria-label":"เหตุผล"}),el("button",{class:"btn primary",disabled:busy,onclick:()=>send(pendKind)},"บันทึก"+KLABEL[pendKind]))):null],
     el("p",{class:"note",style:"margin:10px 0 0"},`เข้างานและออกงานต้องอยู่ที่ทำงานในระยะ ${S.settings.radius} เมตร มือถือจะขอใช้ตำแหน่ง ให้กดอนุญาต ออกบูธ หยุด ลา กดจากที่ไหนก็ได้`)));
   if(!mgr)renderSwap(box,name);
   for(const[k,v]of Object.entries(keep)){const i=document.getElementById(k);if(i&&(i.tagName==="SELECT"?[...i.options].some(o=>o.value===v):!i.value))i.value=v}
@@ -214,12 +220,13 @@ function getPos(){return new Promise((res,rej)=>{if(!navigator.geolocation)retur
   navigator.geolocation.getCurrentPosition(p=>res(p.coords),e=>rej(new Error(e.code===1?"ยังไม่ได้อนุญาตให้ใช้ตำแหน่ง เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่":"หาตำแหน่งไม่ได้ ออกไปที่โล่งหรือเปิด GPS แล้วลองใหม่")),{enableHighAccuracy:true,timeout:20000,maximumAge:0})})}
 async function send(kind){
   const name=me();const pin=$("#pin").value.trim();if(!/^\d{4}$/.test(pin)){msg("ใส่ PIN ตัวเลข 4 หลัก");return}
-  const note=kind==="booth"?$("#booth").value.trim():"";if(kind==="booth"&&!note){msg("ใส่ชื่อบูธด้วย");return}
+  const needNote=["booth","off","leave"].includes(kind);const note=needNote?(($("#reason")||{}).value||"").trim():"";
+  if(needNote&&!note){msg(kind==="booth"?"ใส่ชื่อบูธด้วย":`ใส่เหตุผลที่${KLABEL[kind]}ด้วย`);return}
   busy=true;msg("");renderMe();
   try{let c={};if(kind==="in"||kind==="out"){toast("กำลังหาตำแหน่ง…");c=await getPos()}
     const r=await run("punch",{name,pin,kind,note,lat:c.latitude,lng:c.longitude,acc:c.accuracy});
     LS.set("rd-pin-"+name,$("#rem")&&$("#rem").checked?pin:null);
-    S=r.state;drift=S.serverNow-Date.now();msg(r.message+" เรียบร้อย",true);
+    S=r.state;drift=S.serverNow-Date.now();pendKind=null;msg(r.message+" เรียบร้อย",true);
   }catch(e){msg(e.message)}finally{busy=false;render()}
 }
 
@@ -288,16 +295,16 @@ $("#pPrev").onclick=()=>load(shiftP(S.period,-1));$("#pNext").onclick=()=>load(s
 /* ---------- cycle summary ---------- */
 const fmtHM=m=>!m?"–":m>=60?`${Math.floor(m/60)} ชม. ${m%60} นาที`:`${m} นาที`;
 function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สาย 1 ครั้ง หัก ${S.settings.deduct} วัน (เวรเกิน ${S.settings.deadline} · ไม่เวรเกิน ${S.settings.normDeadline||"08:30"}) · ผู้จัดการไม่หัก`;const t=$("#sumTbl");t.replaceChildren();
-  t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (วัน)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
+  t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (ใช้/สิทธิ์)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
   const tb=el("tbody");
   for(const shop of SHOPS){const L=staffOf(shop);if(!L.length)continue;
    tb.append(el("tr",{class:"grp"},el("td",{colspan:10},"โชว์รูม"+shop)));
-   for(const s of L){let sched=0,act=0,late=0,lateM=0,off=0,lv=0,bo=0,miss=0;
-    for(const d of S.days){const r=RS(shop)[d]||{};if(r.sched===s.name)sched++;const x=day(s.name,d);if(x.status==="หยุด")off++;if(x.status==="ลา")lv++;if(x.status==="ออกบูธ")bo++;
+   for(const s of L){let sched=0,act=0,late=0,lateM=0,off=0,offQ=0,lv=0,bo=0,miss=0;
+    for(const d of S.days){const r=RS(shop)[d]||{};if(r.sched===s.name)sched++;const x=day(s.name,d);if(x.status==="หยุด"){off++;if(!x.auto)offQ++}if(x.status==="ลา")lv++;if(x.status==="ออกบูธ")bo++;
       const lmn=d<=S.today?lateMin(s.name,d):0;if(lmn){late++;lateM+=lmn}
       if(dutyOn(d,shop)===s.name){act++;if(d<S.today&&!x.in&&!x.status)miss++}}
     tb.append(el("tr",{},el("td",{},el("b",{},s.name),isMgr(s)?el("div",{class:"note"},"ผู้จัดการ"):null),[sched,act].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(late?" late":"")},late),el("td",{class:"num"+(lateM?" late":"")},fmtHM(lateM)),el("td",{class:"num"+(late&&!isMgr(s)?" late":"")},isMgr(s)?"–":late*S.settings.deduct),
-      [off,lv,bo].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(miss?" late":"")},miss)))}}
+      el("td",{class:"num"+(s.quota!=null&&offQ>s.quota?" late":"")},s.quota!=null?`${offQ}/${s.quota}`+(offQ>s.quota?` เกิน ${offQ-s.quota}`:""):off),[lv,bo].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(miss?" late":"")},miss)))}}
   t.append(tb);
 }
 
