@@ -79,6 +79,8 @@ td.dc{background:var(--duty-bg)!important} td.num,th.num{text-align:right;font-f
 #msg{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-weight:600}
 #msg.err{background:var(--bad-bg);color:var(--bad)}#msg.ok{background:var(--norm-bg);color:var(--norm)}
 .h3{font-size:16px;margin:0 0 4px}
+.photo-row{margin-bottom:8px}
+.thumb{display:block;max-width:100%;max-height:200px;border-radius:10px;margin-top:8px;border:1px solid var(--line)}
 .shop-h{font-size:16px;margin:4px 0 8px;color:var(--accent)}
 tr.grp td{background:var(--sunk);font-weight:700;color:var(--accent)}
 label.row input[type=checkbox]{flex:0 0 auto}
@@ -138,7 +140,12 @@ const dayName=s=>TH_DF[dt(s).getDay()];
 const shiftP=(p,k)=>{const[y,m]=p.split("-").map(Number);const d=new Date(y,m-1+k,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`};
 const pLabel=p=>{const[y,m]=p.split("-").map(Number);const s=new Date(y,m-2,26);return `รอบ 26 ${TH_M[s.getMonth()]} – 25 ${TH_M[m-1]} ${y+543}`};
 
-let S=null,view="me",drift=0,busy=false,pendKind=null;
+let S=null,view="me",drift=0,busy=false,pendKind=null,photoData=null;
+const photoLink=x=>x.photo&&/^https:\/\//.test(x.photo)?[" ",el("a",{href:x.photo,target:"_blank",rel:"noopener"},"ดูรูป")]:null;
+/* shrink a picked photo to max 1280px JPEG before upload */
+async function loadPhoto(file){if(!file)return;try{const url=URL.createObjectURL(file);const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
+  const k=Math.min(1,1280/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);photoData=c.toDataURL("image/jpeg",0.7);URL.revokeObjectURL(url)}catch(e){msg("อ่านรูปไม่ได้ ลองถ่ายใหม่อีกครั้ง")}renderMe()}
 const KLABEL={booth:"ออกบูธ",off:"หยุด",leave:"ลา"};
 const PH={booth:"บูธที่ไหน เช่น เซ็นทรัลระยอง",off:"เหตุผลที่หยุด เช่น ธุระส่วนตัว",leave:"เหตุผลที่ลา เช่น ลาป่วย"};
 /* day-off quota per pay cycle (column F in the staff sheet); manager weekend auto-off doesn't count */
@@ -156,7 +163,7 @@ const fullName=s=>isMgr(s)?`${s.name} (ผู้จัดการ)`:s.name;
 function staffSelect(attrs,selected,blank){return el("select",attrs,blank?el("option",{value:""},blank):null,
   SHOPS.map(sh=>el("optgroup",{label:"โชว์รูม"+sh},staffOf(sh).map(s=>el("option",{value:s.name,selected:s.name===selected},fullName(s))))))}
 function day(name,date){const st={in:"",out:"",status:"",note:""};for(const r of S.log){if(r.date!==date||r.name!==name)continue;
-  if(r.kind==="เข้างาน")st.in=r.time;else if(r.kind==="ออกงาน")st.out=r.time;else if(r.kind==="ยกเลิก"){st.status="";st.note=""}else if(STATUS[r.kind]){st.status=r.kind;st.note=r.note}}
+  if(r.kind==="เข้างาน")st.in=r.time;else if(r.kind==="ออกงาน")st.out=r.time;else if(r.kind==="ยกเลิก"){st.status="";st.note=""}else if(STATUS[r.kind]){st.status=r.kind;st.note=r.note;st.photo=r.photo||""}}
   /* managers are off on Sat/Sun unless they clock in */
   if(!st.in&&!st.status&&date<=S.today&&[0,6].includes(dt(date).getDay())&&isMgr(S.staff.find(s=>s.name===name))){st.status="หยุด";st.note="เสาร์–อาทิตย์";st.auto=true}
   return st}
@@ -179,7 +186,7 @@ function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(vi
 
 /* ---------- my clock-in ---------- */
 function renderMe(){
-  const box=$("#v-me");const keep={};box.querySelectorAll("input[id],select[id^=sw]").forEach(i=>keep[i.id]=i.value);box.replaceChildren();
+  const box=$("#v-me");const keep={};box.querySelectorAll("input[id]:not([type=file]),select[id^=sw]").forEach(i=>keep[i.id]=i.value);box.replaceChildren();
   const name=me();const names=S.staff.map(s=>s.name);
   const sel=staffSelect({id:"who","aria-label":"เลือกชื่อ",onchange:e=>{LS.set("rd-me",e.target.value);renderMe()}},name,"— เลือกชื่อของคุณ —");
   box.append(el("div",{class:"me-head",style:"margin-bottom:12px"},el("h2",{style:"margin:0"},"ลงเวลา"),sel));
@@ -209,6 +216,9 @@ function renderMe(){
       x.in?null:el("div",{class:"acts2"},
         ["booth","off","leave"].map(k=>el("button",{class:"btn"+(pendKind===k?" on":""),disabled:busy,onclick:()=>{pendKind=pendKind===k?null:k;renderMe();setTimeout(()=>{const i=$("#reason");if(i)i.focus()},0)}},KLABEL[k]))),
       pendKind&&!x.in?el("div",{style:"margin-top:10px"},
+        pendKind==="booth"?el("div",{class:"photo-row"},el("label",{class:"btn",for:"photo"},photoData?"เปลี่ยนรูป":"ถ่ายรูป / แนบรูปบูธ"),
+          el("input",{type:"file",id:"photo",accept:"image/*",hidden:true,onchange:e=>loadPhoto(e.target.files[0])}),
+          photoData?el("img",{src:photoData,class:"thumb",alt:"รูปบูธที่แนบ"}):el("span",{class:"note",style:"margin-left:8px"},"ต้องแนบรูปก่อนบันทึก")):null,
         pendKind==="off"&&quotaOver?el("p",{class:"late",style:"margin:0 0 6px"},`ใช้สิทธิ์หยุดรอบนี้ครบ ${q} วันแล้ว ถ้าหยุดอีกจะนับเป็นเกินสิทธิ์`):null,
         el("div",{class:"row"},el("input",{id:"reason",placeholder:PH[pendKind],"aria-label":"เหตุผล"}),el("button",{class:"btn primary",disabled:busy,onclick:()=>send(pendKind)},"บันทึก"+KLABEL[pendKind]))):null],
     el("p",{class:"note",style:"margin:10px 0 0"},`เข้างานและออกงานต้องอยู่ที่ทำงานในระยะ ${S.settings.radius} เมตร มือถือจะขอใช้ตำแหน่ง ให้กดอนุญาต ออกบูธ หยุด ลา กดจากที่ไหนก็ได้`)));
@@ -222,9 +232,12 @@ async function send(kind){
   const name=me();const pin=$("#pin").value.trim();if(!/^\d{4}$/.test(pin)){msg("ใส่ PIN ตัวเลข 4 หลัก");return}
   const needNote=["booth","off","leave"].includes(kind);const note=needNote?(($("#reason")||{}).value||"").trim():"";
   if(needNote&&!note){msg(kind==="booth"?"ใส่ชื่อบูธด้วย":`ใส่เหตุผลที่${KLABEL[kind]}ด้วย`);return}
+  if(kind==="booth"&&!photoData){msg("แนบรูปบูธก่อนบันทึก");return}
   busy=true;msg("");renderMe();
   try{let c={};if(kind==="in"||kind==="out"){toast("กำลังหาตำแหน่ง…");c=await getPos()}
-    const r=await run("punch",{name,pin,kind,note,lat:c.latitude,lng:c.longitude,acc:c.accuracy});
+    if(kind==="booth")toast("กำลังส่งรูป…");
+    const r=await run("punch",{name,pin,kind,note,lat:c.latitude,lng:c.longitude,acc:c.accuracy,photo:kind==="booth"?photoData:undefined});
+    photoData=null;
     LS.set("rd-pin-"+name,$("#rem")&&$("#rem").checked?pin:null);
     S=r.state;drift=S.serverNow-Date.now();pendKind=null;msg(r.message+" เรียบร้อย",true);
   }catch(e){msg(e.message)}finally{busy=false;render()}
@@ -273,7 +286,7 @@ function renderTeam(){const box=$("#v-team");box.replaceChildren();const d=S.tod
     const t=el("table",{},el("thead",{},el("tr",{},["ชื่อ","วันนี้","เข้า","ออก","หมายเหตุ"].map(h=>el("th",{},h)))));const tb=el("tbody");
     for(const s of L){const x=day(s.name,d),lm=lateMin(s.name,d),isD=duty===s.name;
       tb.append(el("tr",{},el("td",{},el("b",{},s.name)),el("td",{},el("span",{class:"pill "+(x.status?STATUS[x.status]:isD?"t-duty":isMgr(s)?"t-off":"t-norm")},x.status||(isD?"เวร":isMgr(s)?"ผู้จัดการ":"ไม่เวร"))),
-        el("td",{class:"num"+(lm?" late":"")},x.in||"–"),el("td",{class:"num"},x.out||"–"),el("td",{class:lm?"late":"note"},lm?`สาย ${lm} น.`:x.note||"")))}
+        el("td",{class:"num"+(lm?" late":"")},x.in||"–"),el("td",{class:"num"},x.out||"–"),el("td",{class:lm?"late":"note"},lm?`สาย ${lm} น.`:x.note||"",photoLink(x))))}
     t.append(tb);box.append(el("div",{class:"scroll",style:"margin-bottom:22px"},t));
   }
 }
@@ -286,7 +299,7 @@ function renderSheet(){$("#pLbl").textContent=pLabel(S.period);const t=$("#sheet
   const tb=el("tbody");
   for(const d of S.days){const r=RR[d]||{},duty=dutyOn_(d),dw=dt(d).getDay(),lm=duty?lateMin(duty,d):0,dx=duty?day(duty,d):{};
     tb.append(el("tr",{class:(dw===0||dw===6?"we":"")+(d===S.today?" today":"")},el("td",{class:"num"},thShort(d)),el("td",{},TH_DF[dw]),el("td",{},el("b",{},r.sched||"")),el("td",{},r.actual||""),el("td",{},r.ret||""),
-      L.map(n=>{const x=day(n,d),c=duty===n?"dc":"";return x.status?el("td",{class:"g "+c,colspan:2},el("span",{class:"pill "+STATUS[x.status]},x.status+(x.note?" "+x.note:""))):[el("td",{class:"g num "+c},x.in),el("td",{class:"num "+c},x.out)]}),
+      L.map(n=>{const x=day(n,d),c=duty===n?"dc":"";return x.status?el("td",{class:"g "+c,colspan:2},el("span",{class:"pill "+STATUS[x.status]},x.status+(x.note?" "+x.note:"")),photoLink(x)):[el("td",{class:"g num "+c},x.in),el("td",{class:"num "+c},x.out)]}),
       el("td",{class:"g num"+(lm?" late":"")},dx.in||""),el("td",{class:lm?"late":"note"},lm?`${lm} น.`:"")))}
   t.append(tb);
 }
