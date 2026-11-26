@@ -181,7 +181,7 @@ function go(v){view=v;document.querySelectorAll("nav button").forEach(b=>b.toggl
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
-  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} · ไม่เวร ${S.settings.normDeadline||"08:30"} · เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"}`;
+  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"} · ไม่เวรเข้าไม่เกิน ${S.settings.normDeadline||"08:30"} เกินนับนาที`;
   ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]();if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY)$("#rule").textContent="ดูอย่างเดียว · "+$("#rule").textContent.replace(/^ดูอย่างเดียว · /,"")}
 
 /* ---------- my clock-in ---------- */
@@ -196,10 +196,10 @@ function renderMe(){
   box.append(el("div",{class:"today-type "+(isDuty?"duty":"norm")},
     el("div",{class:"note"},`โชว์รูม${myShop} · วัน${dayName(S.today)}ที่ ${dt(S.today).getDate()} ${TH_M[dt(S.today).getMonth()]}`),
     el("div",{class:"big"},x.status?`วันนี้${x.status}`+(x.note?`: ${x.note}`:""):isDuty?"วันนี้คุณเป็นเวร":mgr?"ผู้จัดการ · ไม่อยู่ในตารางเวร":"วันนี้คุณไม่เวร"),
-    el("div",{class:"note"},mgr&&!x.status&&!isDuty?`เข้าไม่เกิน ${S.settings.mgrDeadline||"09:00"} น. (ตามเครื่องสแกน)`:isDuty&&!x.status?`เข้าไม่เกิน ${S.settings.deadline} น. (ตามเครื่องสแกน) · เปิด–ปิดโชว์รูม · ตรวจรถ`:x.auto?"วันหยุดปกติของผู้จัดการ ถ้ามาทำงาน กดเข้างานได้ตามปกติ":x.status?"ไม่ต้องลงเวลาเข้า–ออก":wk?`เข้าไม่เกิน ${S.settings.normDeadline||"08:30"} น. (ตามเครื่องสแกน) เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"}`:"ลงเวลาเข้า–ออกตามปกติ"),
+    el("div",{class:"note"},mgr&&!x.status&&!isDuty?`เข้าไม่เกิน ${S.settings.mgrDeadline||"09:00"} น. (ตามเครื่องสแกน)`:isDuty&&!x.status?`เข้าไม่เกิน ${S.settings.deadline} น. (ตามเครื่องสแกน) · เปิด–ปิดโชว์รูม · ตรวจรถ`:x.auto?"วันหยุดปกติของผู้จัดการ ถ้ามาทำงาน กดเข้างานได้ตามปกติ":x.status?"ไม่ต้องลงเวลาเข้า–ออก":wk?`เข้าไม่เกิน ${S.settings.normDeadline||"08:30"} น. (ตามเครื่องสแกน) เกินนับเป็นนาทีที่สาย`:"ลงเวลาเข้า–ออกตามปกติ"),
     el("div",{class:"note"},nd?`เวรครั้งถัดไป: ${rel(nd)}`:"")));
   if(!x.status||x.auto)box.append(el("div",{class:"times"},
-    el("div",{},el("span",{},"เข้างาน"),el("output",{},x.in||"--:--"),el("div",{class:lm?"late":x.in&&(isDuty||mgr||wk)?"good":"note"},lm?(isDuty?`สายเวร ${lm} นาที · หัก ${S.settings.deduct} วัน`:mgr?`สาย ${lm} นาที`:`สาย ${lm} นาที · หัก ${S.settings.deduct} วัน`):x.in&&(isDuty||mgr||wk)?"ทันเวลา":"")),
+    el("div",{},el("span",{},"เข้างาน"),el("output",{},x.in||"--:--"),el("div",{class:lm?"late":x.in&&(isDuty||mgr||wk)?"good":"note"},lm?(isDuty?`สายเวร ${lm} นาที · หัก ${S.settings.deduct} วัน`:`สาย ${lm} นาที`):x.in&&(isDuty||mgr||wk)?"ทันเวลา":"")),
     el("div",{},el("span",{},"ออกงาน"),el("output",{},x.out||"--:--"))));
   const staff=S.staff.find(s=>s.name===name);
   const q=staff.quota,used=q!=null?offUsed(name):0,quotaOver=q!=null&&used>=q;
@@ -307,16 +307,16 @@ $("#pPrev").onclick=()=>load(shiftP(S.period,-1));$("#pNext").onclick=()=>load(s
 
 /* ---------- cycle summary ---------- */
 const fmtHM=m=>!m?"–":m>=60?`${Math.floor(m/60)} ชม. ${m%60} นาที`:`${m} นาที`;
-function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สาย 1 ครั้ง หัก ${S.settings.deduct} วัน (เวรเกิน ${S.settings.deadline} · ไม่เวรเกิน ${S.settings.normDeadline||"08:30"}) · ผู้จัดการไม่หัก`;const t=$("#sumTbl");t.replaceChildren();
+function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สายวันเวร (เกิน ${S.settings.deadline}) หักครั้งละ ${S.settings.deduct} วัน · ไม่เวร (เกิน ${S.settings.normDeadline||"08:30"}) และผู้จัดการ นับเป็นนาที ไม่หัก`;const t=$("#sumTbl");t.replaceChildren();
   t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (ใช้/สิทธิ์)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
   const tb=el("tbody");
   for(const shop of SHOPS){const L=staffOf(shop);if(!L.length)continue;
    tb.append(el("tr",{class:"grp"},el("td",{colspan:10},"โชว์รูม"+shop)));
-   for(const s of L){let sched=0,act=0,late=0,lateM=0,off=0,offQ=0,lv=0,bo=0,miss=0;
+   for(const s of L){let sched=0,act=0,late=0,lateD=0,lateM=0,off=0,offQ=0,lv=0,bo=0,miss=0;
     for(const d of S.days){const r=RS(shop)[d]||{};if(r.sched===s.name)sched++;const x=day(s.name,d);if(x.status==="หยุด"){off++;if(!x.auto)offQ++}if(x.status==="ลา")lv++;if(x.status==="ออกบูธ")bo++;
-      const lmn=d<=S.today?lateMin(s.name,d):0;if(lmn){late++;lateM+=lmn}
+      const lmn=d<=S.today?lateMin(s.name,d):0;if(lmn){late++;lateM+=lmn;if(dutyOn(d,shop)===s.name)lateD++}
       if(dutyOn(d,shop)===s.name){act++;if(d<S.today&&!x.in&&!x.status)miss++}}
-    tb.append(el("tr",{},el("td",{},el("b",{},s.name),isMgr(s)?el("div",{class:"note"},"ผู้จัดการ"):null),[sched,act].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(late?" late":"")},late),el("td",{class:"num"+(lateM?" late":"")},fmtHM(lateM)),el("td",{class:"num"+(late&&!isMgr(s)?" late":"")},isMgr(s)?"–":late*S.settings.deduct),
+    tb.append(el("tr",{},el("td",{},el("b",{},s.name),isMgr(s)?el("div",{class:"note"},"ผู้จัดการ"):null),[sched,act].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(late?" late":"")},late),el("td",{class:"num"+(lateM?" late":"")},fmtHM(lateM)),el("td",{class:"num"+(lateD?" late":"")},isMgr(s)?"–":lateD*S.settings.deduct),
       el("td",{class:"num"+(s.quota!=null&&offQ>s.quota?" late":"")},s.quota!=null?`${offQ}/${s.quota}`+(offQ>s.quota?` เกิน ${offQ-s.quota}`:""):off),[lv,bo].map(v=>el("td",{class:"num"},v)),el("td",{class:"num"+(miss?" late":"")},miss)))}}
   t.append(tb);
 }
