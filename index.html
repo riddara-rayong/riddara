@@ -159,7 +159,7 @@ function day(name,date){const st={in:"",out:"",status:"",note:""};for(const r of
 const isWeekday=d=>{const w=dt(d).getDay();return w>=1&&w<=5};
 function lateMin(name,date){const x=day(name,date);if(!x.in)return 0;let lim;
   if(isMgr(S.staff.find(s=>s.name===name)))lim=S.settings.mgrDeadline||"09:00";else if(dutyOn(date,shopOf(name))===name)lim=S.settings.deadline;
-  else if(isWeekday(date))lim=S.settings.normDeadline||"08:30";else return 0;
+  else lim=S.settings.normDeadline||"08:30";
   const d=toMin(x.in)-toMin(lim);return d>0?d:0}
 function nextDuty(name){const sh=shopOf(name);return Object.keys(RS(sh)).sort().find(d=>d>S.today&&dutyOn(d,sh)===name)||null}
 function rel(d){const n=Math.round((dt(d)-dt(S.today))/864e5);const w=`${dayName(d)} ${dt(d).getDate()} ${TH_M[dt(d).getMonth()]}`;return n===1?`พรุ่งนี้ (${w})`:`วัน${w} · อีก ${n} วัน`}
@@ -170,7 +170,7 @@ function go(v){view=v;document.querySelectorAll("nav button").forEach(b=>b.toggl
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
-  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} · ไม่เวร จ.–ศ. ${S.settings.normDeadline||"08:30"} · เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"}`;
+  $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} · ไม่เวร ${S.settings.normDeadline||"08:30"} · เกินหัก${S.settings.deduct==0.5?"ครึ่งวัน":S.settings.deduct+" วัน"}`;
   ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]();if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY)$("#rule").textContent="ดูอย่างเดียว · "+$("#rule").textContent.replace(/^ดูอย่างเดียว · /,"")}
 
 /* ---------- my clock-in ---------- */
@@ -181,7 +181,7 @@ function renderMe(){
   box.append(el("div",{class:"me-head",style:"margin-bottom:12px"},el("h2",{style:"margin:0"},"ลงเวลา"),sel));
   if(!name||!names.includes(name)){box.append(el("p",{class:"sub"},"เลือกชื่อของคุณครั้งแรกครั้งเดียว เครื่องนี้จะจำไว้"));return}
   if(S.period!==periodOfToday()){box.append(el("p",{class:"note"},"กำลังดูรอบอื่นอยู่ ",el("button",{class:"btn",onclick:()=>load()},"กลับมารอบปัจจุบัน")));return}
-  const myShop=shopOf(name);const mgr=isMgr(S.staff.find(s=>s.name===name));const isDuty=dutyOn(S.today,myShop)===name;const wk=!mgr&&!isDuty&&isWeekday(S.today);const x=day(name,S.today);const lm=lateMin(name,S.today);const nd=nextDuty(name);
+  const myShop=shopOf(name);const mgr=isMgr(S.staff.find(s=>s.name===name));const isDuty=dutyOn(S.today,myShop)===name;const wk=!mgr&&!isDuty;const x=day(name,S.today);const lm=lateMin(name,S.today);const nd=nextDuty(name);
   box.append(el("div",{class:"today-type "+(isDuty?"duty":"norm")},
     el("div",{class:"note"},`โชว์รูม${myShop} · วัน${dayName(S.today)}ที่ ${dt(S.today).getDate()} ${TH_M[dt(S.today).getMonth()]}`),
     el("div",{class:"big"},x.status?`วันนี้${x.status}`+(x.note?`: ${x.note}`:""):isDuty?"วันนี้คุณเป็นเวร":mgr?"ผู้จัดการ · ไม่อยู่ในตารางเวร":"วันนี้คุณไม่เวร"),
@@ -287,7 +287,7 @@ $("#pPrev").onclick=()=>load(shiftP(S.period,-1));$("#pNext").onclick=()=>load(s
 
 /* ---------- cycle summary ---------- */
 const fmtHM=m=>!m?"–":m>=60?`${Math.floor(m/60)} ชม. ${m%60} นาที`:`${m} นาที`;
-function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สาย 1 ครั้ง หัก ${S.settings.deduct} วัน (เวรเกิน ${S.settings.deadline} · ไม่เวร จ.–ศ. เกิน ${S.settings.normDeadline||"08:30"}) · ผู้จัดการไม่หัก`;const t=$("#sumTbl");t.replaceChildren();
+function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สาย 1 ครั้ง หัก ${S.settings.deduct} วัน (เวรเกิน ${S.settings.deadline} · ไม่เวรเกิน ${S.settings.normDeadline||"08:30"}) · ผู้จัดการไม่หัก`;const t=$("#sumTbl");t.replaceChildren();
   t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (วัน)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
   const tb=el("tbody");
   for(const shop of SHOPS){const L=staffOf(shop);if(!L.length)continue;
