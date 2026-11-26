@@ -152,7 +152,10 @@ const fullName=s=>isMgr(s)?`${s.name} (ผู้จัดการ)`:s.name;
 function staffSelect(attrs,selected,blank){return el("select",attrs,blank?el("option",{value:""},blank):null,
   SHOPS.map(sh=>el("optgroup",{label:"โชว์รูม"+sh},staffOf(sh).map(s=>el("option",{value:s.name,selected:s.name===selected},fullName(s))))))}
 function day(name,date){const st={in:"",out:"",status:"",note:""};for(const r of S.log){if(r.date!==date||r.name!==name)continue;
-  if(r.kind==="เข้างาน")st.in=r.time;else if(r.kind==="ออกงาน")st.out=r.time;else if(r.kind==="ยกเลิก"){st.status="";st.note=""}else if(STATUS[r.kind]){st.status=r.kind;st.note=r.note}}return st}
+  if(r.kind==="เข้างาน")st.in=r.time;else if(r.kind==="ออกงาน")st.out=r.time;else if(r.kind==="ยกเลิก"){st.status="";st.note=""}else if(STATUS[r.kind]){st.status=r.kind;st.note=r.note}}
+  /* managers are off on Sat/Sun unless they clock in */
+  if(!st.in&&!st.status&&date<=S.today&&[0,6].includes(dt(date).getDay())&&isMgr(S.staff.find(s=>s.name===name))){st.status="หยุด";st.note="เสาร์–อาทิตย์";st.auto=true}
+  return st}
 function lateMin(name,date){const x=day(name,date);if(!x.in)return 0;let lim;
   if(isMgr(S.staff.find(s=>s.name===name)))lim=S.settings.mgrDeadline||"09:00";else if(dutyOn(date,shopOf(name))===name)lim=S.settings.deadline;else return 0;
   const d=toMin(x.in)-toMin(lim);return d>0?d:0}
@@ -180,9 +183,9 @@ function renderMe(){
   box.append(el("div",{class:"today-type "+(isDuty?"duty":"norm")},
     el("div",{class:"note"},`โชว์รูม${myShop} · วัน${dayName(S.today)}ที่ ${dt(S.today).getDate()} ${TH_M[dt(S.today).getMonth()]}`),
     el("div",{class:"big"},x.status?`วันนี้${x.status}`+(x.note?`: ${x.note}`:""):isDuty?"วันนี้คุณเป็นเวร":mgr?"ผู้จัดการ · ไม่อยู่ในตารางเวร":"วันนี้คุณไม่เวร"),
-    el("div",{class:"note"},mgr&&!x.status&&!isDuty?`เข้าไม่เกิน ${S.settings.mgrDeadline||"09:00"} น. (ตามเครื่องสแกน)`:isDuty&&!x.status?`เข้าไม่เกิน ${S.settings.deadline} น. (ตามเครื่องสแกน) · เปิด–ปิดโชว์รูม · ตรวจรถ`:x.status?"ไม่ต้องลงเวลาเข้า–ออก":"ลงเวลาเข้า–ออกตามปกติ"),
+    el("div",{class:"note"},mgr&&!x.status&&!isDuty?`เข้าไม่เกิน ${S.settings.mgrDeadline||"09:00"} น. (ตามเครื่องสแกน)`:isDuty&&!x.status?`เข้าไม่เกิน ${S.settings.deadline} น. (ตามเครื่องสแกน) · เปิด–ปิดโชว์รูม · ตรวจรถ`:x.auto?"วันหยุดปกติของผู้จัดการ ถ้ามาทำงาน กดเข้างานได้ตามปกติ":x.status?"ไม่ต้องลงเวลาเข้า–ออก":"ลงเวลาเข้า–ออกตามปกติ"),
     el("div",{class:"note"},nd?`เวรครั้งถัดไป: ${rel(nd)}`:"")));
-  if(!x.status)box.append(el("div",{class:"times"},
+  if(!x.status||x.auto)box.append(el("div",{class:"times"},
     el("div",{},el("span",{},"เข้างาน"),el("output",{},x.in||"--:--"),el("div",{class:lm?"late":x.in&&(isDuty||mgr)?"good":"note"},lm?(isDuty?`สายเวร ${lm} นาที · หัก ${S.settings.deduct} วัน`:`สาย ${lm} นาที`):x.in&&(isDuty||mgr)?"ทันเวลา":"")),
     el("div",{},el("span",{},"ออกงาน"),el("output",{},x.out||"--:--"))));
   const staff=S.staff.find(s=>s.name===name);
@@ -191,7 +194,7 @@ function renderMe(){
   box.append(el("div",{class:"panel"},
     el("div",{class:"row",style:"margin-bottom:6px"},pin),
     el("label",{class:"note row",style:"gap:6px;margin-bottom:12px"},remember,"จำ PIN ในมือถือเครื่องนี้"),
-    x.status?el("button",{class:"btn",style:"width:100%",disabled:busy,onclick:()=>send("cancel")},`ยกเลิก${x.status}`):[
+    x.status&&!x.auto?el("button",{class:"btn",style:"width:100%",disabled:busy,onclick:()=>send("cancel")},`ยกเลิก${x.status}`):[
       el("div",{class:"acts"},
         el("button",{class:"btn primary",disabled:busy||!!x.in,onclick:()=>send("in")},"เข้างาน"),
         el("button",{class:"btn",disabled:busy||!x.in||!!x.out,onclick:()=>send("out")},"ออกงาน")),
