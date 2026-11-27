@@ -180,7 +180,9 @@ function go(v){view=v;document.querySelectorAll("nav button").forEach(b=>b.toggl
   ["me","team","sheet","sum","admin"].forEach(x=>{const e=$("#v-"+x);if(e)e.hidden=x!==v});render()}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
-function render(){if(!S)return;if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
+/* the team started using the app on 27 Nov 2026: earlier days are not shown or counted */
+const START_DATE="2026-11-27";
+function render(){if(!S)return;if(S.days)S.days=S.days.filter(d=>d>=START_DATE);if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY&&(view==="me"||view==="admin"))view="team";$("#brand").textContent=S.settings.name||"ฝ่ายขาย โชว์รูมริดดารา";
   $("#rule").textContent=`เวรเข้าไม่เกิน ${S.settings.deadline} น.`;
   ({me:renderMe,team:renderTeam,sheet:renderSheet,sum:renderSum,admin:renderAdmin})[view]();if(typeof VIEW_ONLY!=="undefined"&&VIEW_ONLY)$("#rule").textContent="ดูอย่างเดียว · "+$("#rule").textContent.replace(/^ดูอย่างเดียว · /,"")}
 
