@@ -339,6 +339,13 @@ function renderAdmin(){const box=$("#v-admin");if(box.childElementCount)return;
 function tick(){const now=new Date(Date.now()+drift);const off=S?S.settings.offset:0;const sc=new Date(now.getTime()+off*60000);
   $("#clk").textContent=`${pad(sc.getHours())}:${pad(sc.getMinutes())}:${pad(sc.getSeconds())}`;$("#clk2").textContent=`ออกงานใช้เวลาจริง ${pad(now.getHours())}:${pad(now.getMinutes())}`}
 setInterval(tick,1000);tick();
+/* phones keep an old copy of the page (home-screen icon); check for a newer version and reload once if found */
+const APP_VERSION="2026-11-27c";
+async function checkUpdate(){try{const t=await (await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"})).text();
+  const m=t.match(/const APP_VERSION="([^"]+)"/);if(!m||m[1]===APP_VERSION)return;const k="rd-upd-"+m[1];
+  try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1")}catch(e){}
+  location.replace(location.pathname+"?u="+Date.now()+(VIEW_ONLY?"&view":""))}catch(e){}}
+checkUpdate();document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkUpdate()});
 /* ?view = read-only link: only team / sheet / summary, no clock-in or manager tools */
 const VIEW_ONLY=new URLSearchParams(location.search).has("view");
 if(VIEW_ONLY){document.querySelectorAll('nav button[data-v="me"],nav button[data-v="admin"]').forEach(b=>b.remove());$("#v-me").remove();$("#v-admin").remove();$("#rule").textContent="ดูอย่างเดียว";go("team")}else go("me");load();
