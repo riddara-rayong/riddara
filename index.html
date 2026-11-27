@@ -133,7 +133,7 @@ async function run(fn,...a){
   if(!j.ok)throw new Error(j.error||"เกิดข้อผิดพลาด");return j.data}
 let tT;function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,3500)}
 function msg(m,ok){const b=$("#msg");b.textContent=m||"";b.className=ok?"ok":"err";b.hidden=!m;if(m)window.scrollTo({top:0,behavior:"smooth"})}
-const toMin=t=>{if(!t)return null;const[a,b]=t.split(":").map(Number);return a*60+b};
+const toMin=t=>{if(!t)return null;const[a,b]=String(t).trim().replace(".",":").split(":").map(Number);return a*60+(b||0)};
 const dt=s=>new Date(s+"T00:00:00");
 const thShort=s=>{const d=dt(s);return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${String(d.getFullYear()+543).slice(2)}`};
 const dayName=s=>TH_DF[dt(s).getDay()];
@@ -338,7 +338,7 @@ function tick(){const now=new Date(Date.now()+drift);const off=S?S.settings.offs
   $("#clk").textContent=`${pad(sc.getHours())}:${pad(sc.getMinutes())}:${pad(sc.getSeconds())}`;$("#clk2").textContent=`ออกงานใช้เวลาจริง ${pad(now.getHours())}:${pad(now.getMinutes())}`}
 setInterval(tick,1000);tick();
 /* phones keep an old copy of the page (home-screen icon); check for a newer version and reload once if found */
-const APP_VERSION="2026-11-27d";
+const APP_VERSION="2026-11-27e";
 async function checkUpdate(){try{const t=await (await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"})).text();
   const m=t.match(/const APP_VERSION="([^"]+)"/);if(!m||m[1]===APP_VERSION)return;const k="rd-upd-"+m[1];
   try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1")}catch(e){}
