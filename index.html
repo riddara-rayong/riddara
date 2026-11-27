@@ -309,7 +309,7 @@ $("#pPrev").onclick=()=>load(shiftP(S.period,-1));$("#pNext").onclick=()=>load(s
 
 /* ---------- cycle summary ---------- */
 const fmtHM=m=>!m?"–":m>=60?`${Math.floor(m/60)} ชม. ${m%60} นาที`:`${m} นาที`;
-function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สายวันเวร (เกิน ${S.settings.deadline}) หักครั้งละ ${S.settings.deduct} วัน · ไม่เวรเข้าหลัง ${S.settings.normDeadline||"08:30"} นับสาย (ไม่หัก) · ผู้จัดการเข้าหลัง ${S.settings.mgrDeadline||"09:00"} นับสาย (ไม่หัก)`;const t=$("#sumTbl");t.replaceChildren();
+function renderSum(){$("#sumLbl").textContent=pLabel(S.period)+` · นับถึงวันนี้ · สายวันเวร (เกิน ${S.settings.deadline}) หักครั้งละ ${S.settings.deduct} วัน · ไม่เวรเข้าไม่เกิน ${S.settings.normDeadline||"08:30"}`;const t=$("#sumTbl");t.replaceChildren();
   t.append(el("thead",{},el("tr",{},["พนักงาน","เวรตามตาราง","เวรจริง","สาย (ครั้ง)","สายรวม","หัก (วัน)","หยุด (ใช้/สิทธิ์)","ลา (ครั้ง)","ออกบูธ (วัน)","ไม่ลงเวลาวันเวร"].map((h,i)=>el("th",{class:i?"num":""},h)))));
   const tb=el("tbody");
   for(const shop of SHOPS){const L=staffOf(shop);if(!L.length)continue;
